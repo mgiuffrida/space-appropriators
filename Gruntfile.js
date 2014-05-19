@@ -62,6 +62,8 @@ module.exports = function (grunt) {
             dest: 'dist/js/plugins/' },
           { expand: true, flatten: true,
             src: ['bower_components/**/build/*.js'], dest: 'dist/js/' },
+          { expand: true, flatten: true,
+            src: ['components/**/dist/*.js'], dest: 'dist/js/' },
           { expand: true, src: ['css/**'], dest: 'dist/' },
           { expand: true, src: ['index.html'], dest: 'dist/' }
         ]
