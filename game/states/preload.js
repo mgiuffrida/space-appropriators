@@ -39,11 +39,14 @@ Preload.prototype = {
 
     this.load.image('bullet', 'assets/images/bullet.png');
 
+    this.load.image('power-up', 'assets/images/power-up.png');
+
     var extension = (getInternetExplorerVersion() === -1) ? 'wav' : 'mp3';
     this.load.audio('shoot', 'assets/sounds/shoot-sin.' + extension);
     this.load.audio('shoot-soft', 'assets/sounds/shoot-triangle.' + extension);
     this.load.audio('explosion', 'assets/sounds/explosion.' + extension);
     this.load.audio('enemy-hit', 'assets/sounds/enemy-hit.' + extension);
+    this.load.audio('power-up', 'assets/sounds/power-up.' + extension);
   },
 
   create: function() {

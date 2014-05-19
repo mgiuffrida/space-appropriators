@@ -18,11 +18,14 @@ var Player = function(game, x, y, frame) {
     Phaser.Keyboard.DOWN,
   ]);
 
-  this.weapon = Player.Weapons.gun;
+  this.weapon = Player.Weapons.laser;
   this.weaponTimer = null;
 
   this.weaponSounds = {};
-  this.weaponSounds[this.weapon.name] = this.game.sound.add('shoot');
+  for (var w in Player.Weapons) {
+    this.weaponSounds[Player.Weapons[w].name] =
+      this.game.sound.add(Player.Weapons[w].sound);
+  }
 
   this.lastShotAt = 0;
 
@@ -62,7 +65,7 @@ Player.prototype.shootBullet = function() {
     return;
   }
   this.lastShotAt = this.game.time.now;
-  this.weaponSounds[this.weapon.sound].play();
+  this.weaponSounds[this.weapon.name].play();
 
   for (var i = 0; i < this.weapon.numBullets; i++) {
     var bullet = this.bulletPool.getFirstDead();
@@ -70,10 +73,12 @@ Player.prototype.shootBullet = function() {
       bullet = this.game.add.sprite(0, 0, 'bullet');
       this.game.physics.arcade.enableBody(bullet);
       this.bulletPool.add(bullet);
+      bullet.immovable = true;
     } else {
       bullet.fadeTween.stop();
       bullet.alpha = 1;
     }
+    bullet.shotEnemies = [];
 
     this.setUpBullet(bullet, i);
   }
@@ -101,12 +106,15 @@ Player.prototype.setUpBullet = function(bullet, i) {
 };
 
 Player.prototype.switchWeapon = function(weapon) {
-  this.weapon = Player.Weapons[weapon];
+  this.weapon = weapon;
+  this.fireDelay = this.weapon.fireDelay;
+
   if (this.weaponTimer)
     this.weaponTimer.destroy();
   this.weaponTimer = this.game.time.create(true);
 
-  this.weaponTimer.add(3000, this.switchWeapon.bind(this, 'gun'));
+  this.weaponTimer.add(3000, this.switchWeapon.bind(this,
+                                                    Player.Weapons.gun));
   this.weaponTimer.start();
 };
 
@@ -145,15 +153,23 @@ Player.prototype.upInputIsActive = function() {
 Player.Weapons = {
   gun: {
     name: 'gun',
-    sound: 'gun',
-    fireDelay: 1000,
+    sound: 'shoot',
+    fireDelay: 800,
     bulletSpeed: 400,
     bulletPadding: 5,
     numBullets: 1,
   },
-  rapid: {
-    name: 'rapid',
-    sound: 'rapid',
+  rapid1: {
+    name: 'rapid1',
+    sound: 'shoot-soft',
+    fireDelay: 175,
+    bulletSpeed: 400,
+    bulletPadding: 5,
+    numBullets: 1,
+  },
+  rapid2: {
+    name: 'rapid2',
+    sound: 'shoot-soft',
     fireDelay: 100,
     bulletSpeed: 400,
     bulletPadding: 5,
@@ -161,12 +177,22 @@ Player.Weapons = {
   },
   cannon: {
     name: 'cannon',
-    sound: 'gun',
+    sound: 'explosion',
     fireDelay: 0,
     maxBullets: 1,
     bulletSpeed: 200,
     bulletPadding: 20,
     numBullets: 3,
+  },
+  laser: {
+    name: 'laser',
+    sound: 'shoot',
+    fireDelay: 1200,
+    maxBullets: 1,
+    bulletSpeed: 800,
+    bulletPadding: 5,
+    numBullets: 1,
+    passThru: true,
   },
 };
 

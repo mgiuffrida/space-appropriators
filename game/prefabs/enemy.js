@@ -17,6 +17,7 @@ var Enemy = function(game, x, y, health) {
     };
   }
   this.alive = true;
+  this.id = Enemy.nextId++;
 };
 
 Enemy.prototype = Object.create(Phaser.Sprite.prototype);
@@ -24,6 +25,8 @@ Enemy.prototype.constructor = Enemy;
 
 Enemy.BOMB_DELAY = 2000;
 Enemy.BOMB_SPEED = 200;
+
+Enemy.nextId = 0;
 
 Enemy.prototype.update = function() {
   // write your prefab's specific update code here
