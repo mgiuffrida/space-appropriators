@@ -34,12 +34,17 @@ Preload.prototype = {
 
     this.load.image('player', 'assets/images/player.png');
 
+    this.load.image('enemy-base2', 'assets/images/enemy-base2.png');
+    this.load.image('enemy-base3', 'assets/images/enemy-base3.png');
     this.load.image('bomber', 'assets/images/enemy.png');
     this.load.image('bomber-red', 'assets/images/enemy-red.png');
 
     this.load.image('bullet', 'assets/images/bullet.png');
 
     this.load.image('power-up', 'assets/images/power-up.png');
+
+    this.load.spritesheet('continue', 'assets/images/continue-sheet.png',
+                          500, 75);
 
     var extension = (getInternetExplorerVersion() === -1) ? 'wav' : 'mp3';
     this.load.audio('shoot', 'assets/sounds/shoot-sin.' + extension);

@@ -1,5 +1,7 @@
 'use strict';
 
+var debug = window.location.href.indexOf('debug') > -1;
+
 var Player = function(game, x, y, frame) {
   Phaser.Sprite.call(this, game, x, y, 'player', frame);
   this.anchor.setTo(0.5, 0);
@@ -16,9 +18,11 @@ var Player = function(game, x, y, frame) {
     Phaser.Keyboard.RIGHT,
     Phaser.Keyboard.UP,
     Phaser.Keyboard.DOWN,
+    Phaser.Keyboard.SPACEBAR,
   ]);
 
-  this.weapon = Player.Weapons.laser;
+  this.defaultWeapon = debug ? Player.Weapons.rapid2 : Player.Weapons.gun;
+  this.weapon = this.defaultWeapon;
   this.weaponTimer = null;
 
   this.weaponSounds = {};
@@ -31,8 +35,13 @@ var Player = function(game, x, y, frame) {
 
   this.bulletPool = this.game.add.group();
 
+  this.laser = null;
+  this.laserTimer = null;
+
   // Calculate min fire delay to prevent bullet overlap.
   this.setFireDelays();
+
+  this.frozen = true;
 };
 
 Player.prototype = Object.create(Phaser.Sprite.prototype);
@@ -45,6 +54,12 @@ Player.DRAG = 2500;
 Player.MAX_SPEED_SHOOTING = 100;
 
 Player.prototype.update = function() {
+  if (this.laserTimer && !this.laserTimer.expired)
+    return;
+
+  if (this.frozen)
+    return;
+
   if (this.leftInputIsActive())
     this.body.acceleration.x = -Player.ACCELERATION;
   else if (this.rightInputIsActive())
@@ -52,8 +67,9 @@ Player.prototype.update = function() {
   else
     this.body.acceleration.x = 0;
 
-  if (this.upInputIsActive()) {
+  if (this.upInputIsActive() && !this.neutered) {
     this.body.maxVelocity.x = Player.MAX_SPEED_SHOOTING;
+    this.shootBullet();
   } else {
     this.body.maxVelocity.x = Player.MAX_SPEED;
   }
@@ -64,8 +80,14 @@ Player.prototype.shootBullet = function() {
       this.fireDelay) {
     return;
   }
+
   this.lastShotAt = this.game.time.now;
   this.weaponSounds[this.weapon.name].play();
+
+  if (this.weapon.passThru) {
+    this.shootLaser();
+    return;
+  }
 
   for (var i = 0; i < this.weapon.numBullets; i++) {
     var bullet = this.bulletPool.getFirstDead();
@@ -78,10 +100,34 @@ Player.prototype.shootBullet = function() {
       bullet.fadeTween.stop();
       bullet.alpha = 1;
     }
-    bullet.shotEnemies = [];
 
     this.setUpBullet(bullet, i);
   }
+};
+
+Player.prototype.shootLaser = function() {
+  var x = this.body.center.x + this.body.velocity.x *
+    this.game.time.elapsed / 1000;
+  this.body.velocity.x = this.body.acceleration.x = 0;
+  this.laser = this.game.add.sprite(x, this.y, 'bullet');
+  this.laser.anchor.setTo(0.5, 1);
+  this.laser.width = 15;
+  this.laser.height = this.game.height;
+
+  this.game.physics.arcade.enableBody(this.laser);
+  this.laser.body.immovable = true;
+
+  if (this.laserTimer)
+    this.laserTimer.destroy();
+  this.laserTimer = this.game.time.create(true);
+  this.laserTimer.add(this.weapon.fireDuration, this.killLaser.bind(this));
+  this.laserTimer.start();
+};
+
+Player.prototype.killLaser = function() {
+  console.log(this.laserTimer.autoDestroy);
+  window.e = this.laserTimer.events;
+  this.laser.destroy();
 };
 
 Player.prototype.setUpBullet = function(bullet, i) {
@@ -111,11 +157,14 @@ Player.prototype.switchWeapon = function(weapon) {
 
   if (this.weaponTimer)
     this.weaponTimer.destroy();
-  this.weaponTimer = this.game.time.create(true);
+  if (this.weapon !== this.defaultWeapon) {
+    this.lastShotAt = 0;
+    this.weaponTimer = this.game.time.create(true);
 
-  this.weaponTimer.add(3000, this.switchWeapon.bind(this,
-                                                    Player.Weapons.gun));
-  this.weaponTimer.start();
+    this.weaponTimer.add(this.weapon.lifeTime,
+                         this.switchWeapon.bind(this, this.defaultWeapon));
+    this.weaponTimer.start();
+  }
 };
 
 Player.prototype.setFireDelays = function() {
@@ -144,10 +193,17 @@ Player.prototype.rightInputIsActive = function() {
 };
 
 Player.prototype.upInputIsActive = function() {
-  var isActive = this.game.input.keyboard.isDown(Phaser.Keyboard.UP);
+  var isActive = this.game.input.keyboard.isDown(Phaser.Keyboard.UP) ||
+                 this.game.input.keyboard.isDown(Phaser.Keyboard.SPACEBAR);
   isActive |= (this.game.input.activePointer.isDown &&
                this.game.input.activePointer.y < this.game.height * 3 / 4);
   return isActive;
+};
+
+Player.prototype.reset = function() {
+  Phaser.Sprite.prototype.reset.call(this,
+                                     this.game.width / 2,
+                                     this.game.height - this.height);
 };
 
 Player.Weapons = {
@@ -157,6 +213,7 @@ Player.Weapons = {
     fireDelay: 800,
     bulletSpeed: 400,
     bulletPadding: 5,
+    lifeTime: 3000,
     numBullets: 1,
   },
   rapid1: {
@@ -165,6 +222,7 @@ Player.Weapons = {
     fireDelay: 175,
     bulletSpeed: 400,
     bulletPadding: 5,
+    lifeTime: 3000,
     numBullets: 1,
   },
   rapid2: {
@@ -173,6 +231,7 @@ Player.Weapons = {
     fireDelay: 100,
     bulletSpeed: 400,
     bulletPadding: 5,
+    lifeTime: 3000,
     numBullets: 1,
   },
   cannon: {
@@ -182,15 +241,18 @@ Player.Weapons = {
     maxBullets: 1,
     bulletSpeed: 200,
     bulletPadding: 20,
+    lifeTime: 1000,
     numBullets: 3,
   },
   laser: {
     name: 'laser',
     sound: 'shoot',
-    fireDelay: 1200,
+    fireDuration: 800,
+    fireDelay: 1400,
     maxBullets: 1,
     bulletSpeed: 800,
     bulletPadding: 5,
+    lifeTime: 4000,
     numBullets: 1,
     passThru: true,
   },
