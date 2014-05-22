@@ -15,7 +15,7 @@ function Play() {
 
 Play.prototype = {
   create: function() {
-    this.stage.backgroundColor = '#000';
+    this.stage.backgroundColor = '#45147c';
 
     this.game.physics.startSystem(Phaser.Physics.ARCADE);
 
@@ -66,15 +66,8 @@ Play.prototype = {
   createEnemies: function() {
     for (var i = 0; i < this.level.enemyRows.length; i++) {
       var enemyType = this.level.enemyTypes[this.level.enemyRows[i]];
-
-      var enemy = new Enemy(this.game, 0, 0, enemyType);
-
-      this.enemyPool.add(enemy);
-      enemy.alive = false;
-      enemy.visible = false;
-
-      var enemyWidth = enemy.width;
-      var enemyHeight = enemy.height;
+      var enemyWidth = 32;
+      var enemyHeight = 32;
 
       // Get the number of enemies per row.
       var availableWidth = this.game.width - 2 * (2 * this.margin);
@@ -83,25 +76,22 @@ Play.prototype = {
       var rowWidth = numEnemies * enemyWidth +
         (numEnemies - 1) * this.level.enemyMargin.x;
 
-      // add half enemyWidth to x to account for x-anchor
+      // Add half enemyWidth to x to account for x-anchor.
       var x = (this.game.width - rowWidth) / 2 + enemyWidth / 2;
       var y = enemyHeight * (i + 1) + this.level.enemyMargin.y * i +
         this.level.startY;
 
-      enemy.reset(x, y, enemyType);
-      if (this.level.healthMultiplier)
-        enemy.health *= this.level.healthMultiplier;
-
-      // Create the remaining enemies.
-      for (var j = 1; j < numEnemies; j++) {
-        x += enemyWidth + this.level.enemyMargin.x;
-        enemy = this.enemyPool.getFirstDead();
+      // Create the enemies.
+      for (var j = 0; j < numEnemies; j++) {
+        var enemy = this.enemyPool.getFirstDead();
         if (!enemy)
           enemy = this.enemyPool.add(new Enemy(this.game, x, y, enemyType));
         else
           enemy.reset(x, y, enemyType);
         if (this.level.healthMultiplier)
-          enemy.health *= this.level.healthMultiplier;
+          enemy.setHealthMultiplier(this.level.healthMultiplier);
+
+        x += enemyWidth + this.level.enemyMargin.x;
       }
     }
   },
@@ -350,9 +340,9 @@ Levels = [{
   enemySpeed: debug ? 80 : 6,
   speedIncrement: 0,
   startY: 100,
-  // healthMultiplier...
+  healthMultiplier: 2,
 }, {
-  // 4 x 3, with guns - 'uh oh, looks like the enemy has gotten more advanced'
+  // 4 x 3, with guns
   probDrop: 0,
   maxDrops: 0,
   maxDropsAlive: 0,

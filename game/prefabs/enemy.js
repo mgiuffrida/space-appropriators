@@ -1,9 +1,10 @@
 'use strict';
 
 var Enemy = function(game, x, y, type) {
-  Phaser.Sprite.call(this, game, x, y, type.key);
+  Phaser.Sprite.call(this, game, x, y, type.key, 0);
   this.anchor.setTo(0.5, 0);
 
+  this.type = type;
   this.health = type.health;
   this.score = type.score;
 
@@ -18,8 +19,11 @@ var Enemy = function(game, x, y, type) {
     };
   }
 
+  this.animations.add('smoking', [1, 2], 5, true);
+  this.frame = 0;
   this.alive = true;
   this.id = Enemy.nextId++;
+  this.healthMultiplier = 1;
 };
 
 Enemy.prototype = Object.create(Phaser.Sprite.prototype);
@@ -55,6 +59,7 @@ Enemy.prototype.kill = function() {
   Phaser.Sprite.prototype.kill.call(this);
 
   this.playSound('explosion');
+  this.animations.stop();
 
   return this;
 };
@@ -62,20 +67,23 @@ Enemy.prototype.kill = function() {
 Enemy.prototype.reset = function(x, y, type) {
   Phaser.Sprite.prototype.reset.call(this, x, y, type.health);
   if (this.type.key !== type.key)
-    this.loadTexture(type.key);
+    this.loadTexture(type.key, 0);
+  else if (this.frame !== 0)
+    this.frame = 0;
 
   this.type = type;
 };
 
 Enemy.prototype.setHealth = function(health) {
   this.health = health;
-  /* Todo: load half-health texture
-  if (health > 1) {
-    this.loadTexture('bomber-red');
-  } else {
-    this.loadTexture('bomber');
-  }
-  */
+
+  if (health <= this.type.health * this.healthMultiplier / 2)
+    this.play('smoking');
+};
+
+Enemy.prototype.setHealthMultiplier = function(healthMultiplier) {
+  this.healthMultiplier = healthMultiplier;
+  this.setHealth(this.health * healthMultiplier);
 };
 
 Enemy.prototype.playSound = function(sound) {
@@ -104,12 +112,12 @@ Enemy.Types = {
     score: 10,
   },
   Normal1: {
-    key: 'bomber',
+    key: 'enemy-base',
     health: 1,
     score: 10,
   },
   Normal2: {
-    key: 'bomber-red',
+    key: 'enemy-base',
     health: 2,
     score: 25,
   },
