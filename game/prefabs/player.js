@@ -125,9 +125,10 @@ Player.prototype.shootLaser = function() {
 };
 
 Player.prototype.killLaser = function() {
-  console.log(this.laserTimer.autoDestroy);
-  window.e = this.laserTimer.events;
-  this.laser.destroy();
+  if (this.laser) {
+    this.laser.destroy();
+    this.laser = null;
+  }
 };
 
 Player.prototype.setUpBullet = function(bullet, i) {
@@ -154,6 +155,7 @@ Player.prototype.setUpBullet = function(bullet, i) {
 Player.prototype.switchWeapon = function(weapon) {
   this.weapon = weapon;
   this.fireDelay = this.weapon.fireDelay;
+  this.killLaser();
 
   if (this.weaponTimer)
     this.weaponTimer.destroy();
@@ -254,6 +256,7 @@ Player.Weapons = {
     bulletPadding: 5,
     lifeTime: 4000,
     numBullets: 1,
+    invDamage: 450, // 1000 / DPS
     passThru: true,
   },
 };

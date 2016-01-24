@@ -49,6 +49,9 @@ Preload.prototype = {
 */
     this.load.image('bullet', 'assets/images/bullet.png');
 
+    this.load.image('bomb-base2', 'assets/images/bomb-base2.png');
+    this.load.image('bomb-base3', 'assets/images/bomb-base3.png');
+
     this.load.image('power-up', 'assets/images/power-up.png');
 
     this.load.spritesheet('continue', 'assets/images/continue-sheet.png',

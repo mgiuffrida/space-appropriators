@@ -2,6 +2,7 @@
 
 var Player = require('../prefabs/player.js');
 var Enemy = require('../prefabs/enemy.js');
+var Bomb = require('../prefabs/bomb.js');
 var Drop = require('../prefabs/drop.js');
 
 var Levels, Scripts;
@@ -10,20 +11,22 @@ var debug = window.location.href.indexOf('debug') > -1;
 
 function Play() {
   this.totalScore = 0;
-  this.levelNum = 0;
+  this.levelNum = debug ? 1 : 0;
 }
 
 Play.prototype = {
   create: function() {
-    this.stage.backgroundColor = '#45147c';
+    this.stage.backgroundColor = '#2c0b3d';
 
     this.game.physics.startSystem(Phaser.Physics.ARCADE);
 
     this.enemyPool = this.game.add.group();
+    Bomb.bombPool = this.game.add.group();
 
     this.margin = 40;
 
     this.player = new Player(this.game, 0, 0);
+
     this.game.add.existing(this.player);
 
     this.dropPool = this.game.add.group();
@@ -40,7 +43,7 @@ Play.prototype = {
     this.roundOver = true;
     this.gameOver = this.lost = this.won = false;
 
-    this.nextLevel();
+    this.setUpLevel();
 
     this.playerBoundary = this.game.height -
       this.enemyPool.getAt(0).height;
@@ -52,10 +55,14 @@ Play.prototype = {
     this.physics.arcade.collide(this.player.bulletPool, this.enemyPool,
                                 this.shootEnemy, null, this);
 
+
     if (this.player.weapon.passThru) {
       this.physics.arcade.overlap(this.player.laser, this.enemyPool,
                                   this.laserEnemy, null, this);
     }
+
+    this.physics.arcade.collide(this.player, Bomb.bombPool,
+                                this.shootPlayer, null, this);
 
     this.physics.arcade.overlap(this.player, this.dropPool,
                                 this.getDrop, null, this);
@@ -71,10 +78,13 @@ Play.prototype = {
 
       // Get the number of enemies per row.
       var availableWidth = this.game.width - 2 * (2 * this.margin);
-      var numEnemies = Math.floor((availableWidth + this.level.enemyMargin.x) /
-                                  (enemyWidth + this.level.enemyMargin.x));
-      var rowWidth = numEnemies * enemyWidth +
-        (numEnemies - 1) * this.level.enemyMargin.x;
+      if (!this.numColumns)
+        this.numColumns =  Math.floor(
+          (availableWidth + this.level.enemyMargin.x) /
+            (enemyWidth + this.level.enemyMargin.x));
+
+      var rowWidth = this.numColumns * enemyWidth +
+        (this.numColumns - 1) * this.level.enemyMargin.x;
 
       // Add half enemyWidth to x to account for x-anchor.
       var x = (this.game.width - rowWidth) / 2 + enemyWidth / 2;
@@ -82,7 +92,7 @@ Play.prototype = {
         this.level.startY;
 
       // Create the enemies.
-      for (var j = 0; j < numEnemies; j++) {
+      for (var j = 0; j < this.numColumns; j++) {
         var enemy = this.enemyPool.getFirstDead();
         if (!enemy)
           enemy = this.enemyPool.add(new Enemy(this.game, x, y, enemyType));
@@ -91,7 +101,54 @@ Play.prototype = {
         if (this.level.healthMultiplier)
           enemy.setHealthMultiplier(this.level.healthMultiplier);
 
+        enemy.column = j;
+
         x += enemyWidth + this.level.enemyMargin.x;
+      }
+    }
+  },
+
+  armEnemies: function(column, arm) {
+    var yMax;
+    var lowestEnemy;
+
+    if (typeof arm === 'undefined')
+      arm = true;
+
+    if (column !== undefined) {
+      yMax = 0;
+      this.enemyPool.forEachAlive(
+        function(enemy) {
+          if (enemy.column === column && yMax < enemy.y) {
+            yMax = enemy.y;
+            lowestEnemy = enemy;
+          }
+        }, this);
+      if (lowestEnemy) {
+        if (arm)
+          lowestEnemy.arm(false);
+        else
+          lowestEnemy.disarm();
+      }
+      return;
+    }
+
+    yMax = new Array(this.numColumns);
+    lowestEnemy = new Array(this.numColumns);
+    this.enemyPool.forEachAlive(
+      function(enemy) {
+        if (yMax[enemy.column] === undefined || yMax[enemy.column] < enemy.y) {
+          yMax[enemy.column] = enemy.y;
+          lowestEnemy[enemy.column] = enemy;
+        }
+      }, this);
+
+    for (var i = 0; i < lowestEnemy.length; i++) {
+      if (lowestEnemy[i]) {
+        if (arm)
+          lowestEnemy[i].arm(true);
+        else
+          lowestEnemy[i].disarm();
       }
     }
   },
@@ -154,6 +211,7 @@ Play.prototype = {
     if (!enemy.alive) {
       this.score += enemy.score;
       this.updateScoreText();
+      this.armEnemies(enemy.column);
 
       if (this.totalDrops < this.level.maxDrops &&
           this.dropPool.countLiving() < this.level.maxDropsAlive &&
@@ -171,11 +229,12 @@ Play.prototype = {
   },
 
   laserEnemy: function(laser, enemy) {
-    enemy.damage(this.game.time.elapsed / 500, false);
+    enemy.damage(this.game.time.elapsed / this.player.weapon.invDamage, false);
 
     if (!enemy.alive) {
       this.score += enemy.score;
       this.updateScoreText();
+      this.armEnemies(enemy.column);
 
       if (this.totalDrops < this.level.maxDrops &&
           this.dropPool.countLiving() < this.level.maxDropsAlive &&
@@ -188,6 +247,14 @@ Play.prototype = {
 
     if (!this.enemyPool.countLiving())
       this.win();
+  },
+
+  shootPlayer: function(player, bomb) {
+    bomb.kill();
+    player.damage(1, true);
+
+    if (player.health <= 0)
+      this.lose();
   },
 
   getDrop: function(player, drop) {
@@ -206,6 +273,8 @@ Play.prototype = {
     this.player.neutered = true;
 
     this.setGameOverText('You lose!');
+
+    this.armEnemies(undefined, false);
   },
 
   win: function() {
@@ -228,15 +297,17 @@ Play.prototype = {
   },
 
   showScore: function() {
-    this.game.state.start('score', true, false, this.score, this.totalScore);
+    if (!this.lost)
+      this.game.state.start('score', true, false, this.score, this.totalScore);
   },
 
-  nextLevel: function() {
+  setUpLevel: function() {
     this.player.world.setTo(this.game, this.game.width / 2);
     this.player.position.x = this.game;
     this.player.position.y = this.game.width / 2;
     this.player.anchor.setTo(0.5, 0);
     this.player.reset();
+    this.player.health = 2;
     this.player.frozen = true;
 
     if (this.player.laser)
@@ -268,6 +339,7 @@ Play.prototype = {
     this.roundOver = false;
     this.enemyPool.setAll('body.velocity.x',
                           this.enemySpeed * (this.enemyRight ? 1 : -1));
+    this.armEnemies();
   },
 
   playScripts: function(callback) {
@@ -298,7 +370,7 @@ Play.prototype = {
     this.scriptTimer = this.game.time.create();
 
     var delay = debug ? 0 : 1000;
-    var letterTime = debug ? 15 : 45;
+    var letterTime = debug ? 5 : 45;
     this.scriptTimer.add(
       delay + letterTime * text.length,
       function() {
